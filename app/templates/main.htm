@@ -1,0 +1,36 @@
+{% extends "base.htm" %}
+
+{% block title %}Real time auctions{% endblock %}
+{% block heading %}Real time auctions{% endblock %}
+
+{% block head %}
+<script src='/_ah/channel/jsapi'></script>
+<script src="/static/main.js" type="text/javascript"></script>
+{% endblock %}
+
+{% block content %}
+<div id="message"></div>
+<h2>What's for sale?</h2>
+<div id="item">
+No item
+</div>
+<p>
+This auction will expire in <span id="remaining"></span> second(s).
+</p>
+<p>
+Current Bid: <span id="bid"></span> by <span id="bidder"></span><br/>
+</p>
+<p>
+<form onsubmit="mgr.new_bid(); return false" action="#">
+Make a bid:
+<input type="text" name="new_bid" id="new_bid" value="0.00"/>
+<input type="submit" name="Make Bid" value="Make Bid"/>
+</form>
+</p>
+<div id="log"></div>
+<script>
+  var mgr = auction();
+  mgr.init( "{{ token }}" );
+  mgr.message( '{{ state }}' );
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.htm" %}
+
+{% block title %}Add Items{% endblock %}
+{% block heading %}Add Items{% endblock %}
+
+{% block content %}
+<form method="post" action="/add">
+<textarea name="items">
+item 1
+item 2
+item 3
+</textarea>
+<input type="submit" value="Add"/>
+</form>
+{% endblock %}
