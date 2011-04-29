@@ -19,3 +19,5 @@ SHIPPING = False # not yet working properly; PayPal bug
 
 EMBEDDED_ENDPOINT = 'https://paypal.com/webapps/adaptivepayment/flow/pay'
 # EMBEDDED_ENDPOINT = 'https://www.sandbox.paypal.com/webapps/adaptivepayment/flow/pay'
+
+BID_WAIT = 10 # how long to wait before ending the auction (s) 

@@ -10,24 +10,32 @@
 
 {% block content %}
 <div id="message"></div>
-<h2>What's for sale?</h2>
-<div id="item">
-No item
+<div id="auction">
+  <h2>What's for sale?</h2>
+  <div>
+  <span id="item_image"></span>
+  <span id="item">
+    No item
+  </span>
+  </div>
+  <br/>
+  <div id="remaining">
+  </div>
+  <br/>
+  <div id="bid">
+  </div>
+  <p>
+    <form onsubmit="mgr.new_bid(); return false" action="#">
+      Make a bid:
+      <input type="text" name="new_bid" id="new_bid" value="0.00"/>
+      <input type="submit" name="Make Bid" value="Make Bid"/>
+    </form>
+  </p>
+  <div id="log"></div>
 </div>
-<p>
-This auction will expire in <span id="remaining"></span> second(s).
-</p>
-<p>
-Current Bid: <span id="bid"></span> by <span id="bidder"></span><br/>
-</p>
-<p>
-<form onsubmit="mgr.new_bid(); return false" action="#">
-Make a bid:
-<input type="text" name="new_bid" id="new_bid" value="0.00"/>
-<input type="submit" name="Make Bid" value="Make Bid"/>
-</form>
-</p>
-<div id="log"></div>
+<div id="confirm" style="display: none">
+<a onclick="mgr.confirm_purchase(); return false" href="nojs.htm">Continue...</a>
+</div>
 <script>
   var mgr = auction();
   mgr.init( "{{ token }}" );

@@ -25,3 +25,7 @@ label {
   width: 5em;
   float: left;
 }
+
+#log {
+  color: #aaa;
+}

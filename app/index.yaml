@@ -15,3 +15,8 @@ indexes:
   - name: item
   - name: amount
     direction: desc
+
+- kind: Item
+  properties:
+  - name: status
+  - name: started

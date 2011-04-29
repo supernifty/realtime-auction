@@ -5,14 +5,21 @@ var auction = function () {
     socket,
     expiry,
     key,
-    timer = null;
+    timer = null,
+    stopped = false;
 
   on_opened = function() {
   };
   
   on_message = function(m) {
-    var parsed = JSON.parse( m.data );
-    update_view( parsed );
+    console.log( "got " + m.data );
+    if ( stopped ) {
+      console.log( "ignored" );
+    }
+    else {
+      var parsed = JSON.parse( m.data );
+      update_view( parsed );
+    }
   };
   
   on_error = function() {
@@ -34,27 +41,50 @@ var auction = function () {
   };
 
   update_view = function( state ) {
-    key = state.key;
-    document.getElementById( "bid" ).innerHTML = state.bid;
-    document.getElementById( "bidder" ).innerHTML = state.bidder;
-    document.getElementById( "item" ).innerHTML = state.item;
     document.getElementById( "message" ).innerHTML = state.message;
-    expiry = new Date(new Date().getTime() + parseInt(state.remaining));
-    if ( timer ) {
-      clearTimeout( timer );
-      timer = null;
+    if ( state.state == 'OK' ) {
+      document.getElementById( "auction" ).style.display = 'block';
+      key = state.key;
+      if ( state.bid == '0.00' ) {
+        document.getElementById( "bid" ).innerHTML = 'No bids.';
+      }
+      else {
+        document.getElementById( "bid" ).innerHTML = "Current bid: " + state.bid + " by " + state.bidder;
+      }
+      document.getElementById( "item_image" ).innerHTML = "<img src='/static/placeholder.png' alt='" + state.item + "'>";
+      document.getElementById( "item" ).innerHTML = state.item;
+      expiry = new Date(new Date().getTime() + parseInt(state.remaining) * 1000 );
+      if ( timer ) {
+        clearTimeout( timer );
+        timer = null;
+      }
+      update_remaining();
     }
-    update_remaining();
+    else if ( state.state == 'STOP' ) { 
+      document.getElementById( "auction" ).style.display = 'none';
+      document.getElementById( "confirm" ).style.display = 'block';
+      stopped = true;
+    }
+    else { // something wrong
+      document.getElementById( "auction" ).style.display = 'none';
+      timer = setTimeout( ping, 30000 );
+    }
+  }
+
+  ping = function() {
+    console.log( "sending ping" );
+    send( "/ping" );
   }
 
   update_remaining = function() {
-    var remaining = expiry.getTime() - new Date().getTime();
+    var remaining = Math.round( ( expiry.getTime() - new Date().getTime() ) / 1000 );
     if ( remaining > 0 ) {
-      document.getElementById( "remaining" ).innerHTML = Math.round( remaining / 1000 );
+      document.getElementById( "remaining" ).innerHTML = "This auction will expire in " + Math.round( remaining ) + " second" + ( remaining == 1 ? "" : "s" );
       timer = setTimeout( update_remaining, 1000 );
     }
     else {
-      document.getElementById( "remaining" ).innerHTML = "0";
+      document.getElementById( "remaining" ).innerHTML = "Auction FINISHED";
+      timer = setTimeout( ping, 1000 );
     }
   }
 
@@ -76,8 +106,14 @@ var auction = function () {
       send( "/bid", "key=" + key + "&amount=" + document.getElementById("new_bid").value );
     },
 
+    confirm_purchase: function() {
+      send( "/ping" );
+      document.getElementById( "confirm" ).style.display = 'none';
+      stopped = false;
+    },
+
     message: function(m) {
-      log( "processing message: " + m );
+      log( "got: " + m );
       on_message( { "data": m } );
     }
   }
