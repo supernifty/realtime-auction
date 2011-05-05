@@ -1,0 +1,15 @@
+{% extends "base.htm" %}
+
+{% block title %}User profile{% endblock %}
+{% block heading %}User profile{% endblock %}
+
+{% block content %}
+<p>You are logged in as {{ user.email }}.</p>
+<p>You can spend up to <b>${{ profile.amount_dollars|floatformat:2 }}</b> until <b>{{ profile.preapproval_expiry }}</b></p>
+<p>Update your preapproved spend:</p>
+<form method="post" action="/profile">
+<input type="text" name="amount" value="{{ profile.amount_dollars|floatformat:2 }}"/><br/>
+<input type="submit" value="Update"/>
+</form>
+<p>Preapproved spending expires 28 days from approval</p>
+{% endblock %}

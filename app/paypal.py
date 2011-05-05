@@ -1,3 +1,4 @@
+import datetime
 import decimal
 import logging
 import urllib
@@ -150,3 +151,85 @@ class url_request( object ):
 
   def code( self ):
     return self.response.status_code
+
+class Preapproval( object ):
+  def __init__( self, amount, return_url, cancel_url, remote_address ):
+    headers = {
+      'X-PAYPAL-SECURITY-USERID': settings.PAYPAL_USERID, 
+      'X-PAYPAL-SECURITY-PASSWORD': settings.PAYPAL_PASSWORD, 
+      'X-PAYPAL-SECURITY-SIGNATURE': settings.PAYPAL_SIGNATURE, 
+      'X-PAYPAL-REQUEST-DATA-FORMAT': 'JSON',
+      'X-PAYPAL-RESPONSE-DATA-FORMAT': 'JSON',
+      'X-PAYPAL-APPLICATION-ID': settings.PAYPAL_APPLICATION_ID,
+      'X-PAYPAL-DEVICE-IPADDRESS': remote_address,
+    }
+
+    now = datetime.datetime.utcnow()
+    expiry = now + datetime.timedelta( days=settings.PREAPPROVAL_PERIOD )
+    data = {
+      'endingDate': expiry.isoformat(),
+      'startingDate': now.isoformat(),
+      'maxTotalAmountOfAllPayments': '%.2f' % amount,
+      'currencyCode': 'USD',
+      'returnUrl': return_url,
+      'cancelUrl': cancel_url,
+      'requestEnvelope': { 'errorLanguage': 'en_US' },
+    } 
+
+    self.raw_request = json.dumps(data)
+    self.raw_response = url_request( "%s%s" % ( settings.PAYPAL_ENDPOINT, "Preapproval" ), data=self.raw_request, headers=headers ).content() 
+    logging.debug( "response was: %s" % self.raw_response )
+    self.response = json.loads( self.raw_response )
+
+  def key( self ):
+    if self.response.has_key( 'preapprovalKey' ):
+      return self.response['preapprovalKey']
+    else:
+      return None
+
+  def next_url( self ):
+    return '%s?cmd=_ap-preapproval&preapprovalkey=%s' % ( settings.PAYPAL_PAYMENT_HOST, self.response['preapprovalKey'] )
+
+  def status( self ):
+    if self.response.has_key( 'responseEnvelope' ) and self.response['responseEnvelope'].has_key( 'ack' ):
+      return self.response['responseEnvelope']['ack']
+    else:
+      return None 
+
+class PayWithPreapproval( object ):
+  def __init__( self, amount, preapproval_key ):
+    headers = {
+      'X-PAYPAL-SECURITY-USERID': settings.PAYPAL_USERID, 
+      'X-PAYPAL-SECURITY-PASSWORD': settings.PAYPAL_PASSWORD, 
+      'X-PAYPAL-SECURITY-SIGNATURE': settings.PAYPAL_SIGNATURE, 
+      'X-PAYPAL-REQUEST-DATA-FORMAT': 'JSON',
+      'X-PAYPAL-RESPONSE-DATA-FORMAT': 'JSON',
+      'X-PAYPAL-APPLICATION-ID': settings.PAYPAL_APPLICATION_ID,
+      'X-PAYPAL-DEVICE-IPADDRESS': '127.0.0.1', #remote_address,
+    }
+
+    data = {
+      'actionType': 'PAY',
+      'amount': '%.2f' % amount,
+      'preapprovalKey': preapproval_key,
+      'currencyCode': 'USD',
+      'returnUrl': 'http://dummy',
+      'cancelUrl': 'http://dummy',
+      'requestEnvelope': { 'errorLanguage': 'en_US' },
+      'receiverList': { 'receiver': [ { 'email': settings.PAYPAL_EMAIL, 'amount': '%.2f' % amount } ] }
+    } 
+
+    self.raw_request = json.dumps(data)
+    self.raw_response = url_request( "%s%s" % ( settings.PAYPAL_ENDPOINT, "Pay" ), data=self.raw_request, headers=headers ).content() 
+    logging.debug( "response was: %s" % self.raw_response )
+    self.response = json.loads( self.raw_response )
+
+  def status( self ):
+    if self.response.has_key( 'paymentExecStatus' ):
+      return self.response['paymentExecStatus']
+    else:
+      return None 
+
+  def paykey( self ):
+    return self.response['payKey']
+

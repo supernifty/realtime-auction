@@ -3,18 +3,24 @@ import logging
 
 from google.appengine.ext import db
 
+import paypal
 import settings
 import util
 
 class Profile( db.Model ):
   owner = db.UserProperty()
-  balance = db.IntegerProperty() # cents
+  preapproval_amount = db.IntegerProperty() # cents
+  preapproval_expiry = db.DateTimeProperty()
+  preapproval_key = db.StringProperty()
+
+  def amount_dollars( self ):
+    return self.preapproval_amount / 100
 
   @staticmethod
   def find( user ):
     profile = Profile.all().filter( 'owner =', user ).get()
     if profile == None:
-      profile = Profile( owner=user, balance=10000 ) # start with $100.00
+      profile = Profile( owner=user, preapproval_amount=0 )
       profile.save()
     return profile
 
@@ -44,22 +50,35 @@ class Item( db.Model ):
     bids = Bid.all().filter( "item =", self ).order( "-amount" ).fetch(1)
     if len(bids) > 0:
       self.status = 'FINISHED'
-      self.settled()
-      # tell user
-      bid = bids[0]
-      util.notify_message( bid.bidder, 'STOP', 'You successfully purchased %s for $%.2f' % ( bid.item.title, bid.amount_dollars() ) )
+      if self.settle():
+        # tell user
+        bid = bids[0]
+        util.notify_message( bid.bidder, 'STOP', 'You successfully purchased %s for $%.2f' % ( bid.item.title, bid.amount_dollars() ) )
+      else:
+        bid = bids[0]
+        util.notify_message( bid.bidder, 'STOP', 'You won %s for $%.2f. Payment is required.' % ( bid.item.title, bid.amount_dollars() ) )
     else:
       self.status = 'READY'
     self.save()
 
-  def settled( self ):
+  def settle( self ):
     '''auction has settled'''
     bid = Bid.all().filter( "item =", self ).order( "-amount" ).fetch(1)[0]
     profile = Profile.find( bid.bidder )
-    profile.balance -= bid.amount
-    profile.save()
-    self.status = 'SETTLED'
-    self.save()
+    # TODO make the preapproved payment through paypal
+    logging.info( "settling transaction..." )
+    pay = paypal.PayWithPreapproval( amount=bid.amount_dollars(), preapproval_key=profile.preapproval_key )
+    if pay.status() == 'COMPLETED':
+      # update db
+      profile.preapproval_amount -= bid.amount
+      profile.save()
+      self.status = 'SETTLED'
+      self.save()
+      logging.info( "settling transaction: done" )
+      return True
+    else:
+      # something went wrong
+      return False
 
   @staticmethod
   def state( message='' ):
@@ -126,7 +145,7 @@ class Client( db.Model ):
     # find and update or add new, remove old
     item = Client.all().filter( "user = ", user ).get()
     if item == None:
-      model.Client( user=user ).save() 
+      Client( user=user ).save() 
     else:
       item.updated = datetime.datetime.now()
       item.save()
@@ -136,3 +155,16 @@ class Client( db.Model ):
     items = Client.all().filter( "updated <", too_old )
     for item in items:
       item.delete()
+
+class Preapproval( db.Model ):
+  '''track interaction with paypal'''
+  user = db.UserProperty()
+  created = db.DateTimeProperty(auto_now_add=True)
+  status = db.StringProperty( choices=( 'NEW', 'CREATED', 'ERROR', 'CANCELLED', 'COMPLETED' ) )
+  status_detail = db.StringProperty()
+  secret = db.StringProperty() # to verify return_url
+  debug_request = db.TextProperty()
+  debug_response = db.TextProperty()
+  preapproval_key = db.StringProperty()
+  amount = db.IntegerProperty() # cents
+

@@ -1,4 +1,5 @@
 import cgi
+import datetime
 import decimal
 import logging
 import os
@@ -55,13 +56,13 @@ class Bid(webapp.RequestHandler):
       amount = float( self.request.get( "amount" ) )
       logging.info( "got amount %f" % amount )
       if amount > float( item.bid_info()['bid'] ):
-        balance = model.Profile.find( user ).balance
-        if int(amount*100) <= balance:
+        balance = model.Profile.find( user ).preapproval_amount
+        if int(amount*100) <= balance: # TODO check preapproval expiry
           logging.info( "adding bid" )
           model.Bid( bidder=user, amount=int(amount*100), item=item ).save()
           util.notify_all(user, "You bid $%.2f for %s" % ( amount, item.title ) )
         else:
-          util.notify( user, "Bid exceeds balance of $%.2f" % float( balance / 100 ) ) # no good
+          util.notify( user, "Bid exceeds balance of $%.2f. Update your profile!" % float( balance / 100 ) ) # no good
       else:
         util.notify( user, "Bid must be more than $%.2f" % float( item.bid_info()['bid'] ) ) # no good
     else:
@@ -89,18 +90,80 @@ class Profile(webapp.RequestHandler):
     user = users.get_current_user()
     if not user:
       self.redirect(users.create_login_url(self.request.uri))
-    data = { 'user': user }
+    profile = model.Profile.find( user )
+    data = { 'user': user, 'profile': profile }
     path = os.path.join(os.path.dirname(__file__), 'templates/profile.htm')
     self.response.out.write(template.render(path, data))
 
   def post(self):
+    '''start preapproval'''
     user = users.get_current_user()
     if not user:
       self.redirect(users.create_login_url(self.request.uri))
 
-    data = { 'user': user }
+    amount = float(self.request.get( "amount" ))
+    item = model.Preapproval( user=user, status="NEW", secret=util.random_alnum(16), amount=int(amount*100) )
+    item.put()
+    # get key
+    preapproval = paypal.Preapproval(
+      amount=amount,
+      return_url="%s/success/%s/%s/" % ( self.request.uri, item.key(), item.secret ),
+      cancel_url=self.request.uri,
+      remote_address=self.request.remote_addr )
+    
+    item.debug_request = preapproval.raw_request
+    item.debug_response = preapproval.raw_response
+    item.put()
+
+    if preapproval.status() == 'Success':
+      item.status = 'CREATED'
+      item.preapproval_key = preapproval.key()
+      item.put()
+      self.redirect( preapproval.next_url() ) # go to paypal
+    else:
+      item.status = 'ERROR'
+      item.status_detail = 'Preapproval status was "%s"' % preapproval.status()
+      item.put()
+
     path = os.path.join(os.path.dirname(__file__), 'templates/profile.htm')
-    self.response.out.write(template.render(path, data))
+    self.response.out.write(template.render(path, { 'message': 'An error occurred connecting to PayPal', 'user': user, 'profile': model.Profile.find( user ) } ))
+
+class Success (webapp.RequestHandler):
+  def get(self, key, secret):
+    logging.info( "returned from paypal" )
+    
+    item = model.Preapproval.get( key )
+
+    # validation
+    if item == None: # no key
+      self.error(404)
+      return
+
+    if item.status != 'CREATED':
+      item.status_detail = 'Unexpected status %s' % item.status
+      item.status = 'ERROR'
+      item.put()
+      self.error(501)
+      return
+      
+    if item.secret != secret:
+      item.status_detail = 'Incorrect secret %s' % secret
+      item.status = 'ERROR'
+      item.put()
+      self.error(501)
+      return
+
+    # looks ok
+    profile = model.Profile.find( item.user )
+    profile.preapproval_amount = item.amount
+    profile.preapproval_expiry = datetime.datetime.utcnow() + datetime.timedelta( days=settings.PREAPPROVAL_PERIOD )
+    profile.preapproval_key = item.preapproval_key
+    profile.put()
+    item.status = 'COMPLETED'
+    item.put()
+    
+    path = os.path.join(os.path.dirname(__file__), 'templates/profile.htm')
+    self.response.out.write(template.render(path, { 'message': 'Your preapproved limit was updated.', 'user': item.user, 'profile': profile } ))
 
 class NotFound (webapp.RequestHandler):
   def get(self):
@@ -112,6 +175,7 @@ application = webapp.WSGIApplication( [
     ('/ping', Ping),
     ('/add', Add),
     ('/profile', Profile),
+    ('/profile/success/([^/]*)/([^/]*)/.*', Success),
     ('/.*', NotFound),
   ],
   debug=True)

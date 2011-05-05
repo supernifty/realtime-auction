@@ -12,12 +12,5 @@ PAYPAL_SIGNATURE = '*** REQUIRED ***'
 PAYPAL_APPLICATION_ID = 'APP-80W284485P519543T' # sandbox only
 PAYPAL_EMAIL = '*** REQUIRED ***'
 
-USE_CHAIN = False
-USE_IPN = False
-USE_EMBEDDED = False
-SHIPPING = False # not yet working properly; PayPal bug
-
-EMBEDDED_ENDPOINT = 'https://paypal.com/webapps/adaptivepayment/flow/pay'
-# EMBEDDED_ENDPOINT = 'https://www.sandbox.paypal.com/webapps/adaptivepayment/flow/pay'
-
 BID_WAIT = 10 # how long to wait before ending the auction (s) 
+PREAPPROVAL_PERIOD = 28 # days to ask for in a preapproval

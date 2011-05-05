@@ -1,5 +1,7 @@
 import logging
+import random
 import simplejson
+import string
 
 from google.appengine.api import channel
 from google.appengine.api import users
@@ -24,3 +26,11 @@ def notify( user, message='' ):
 
 def notify_message( user, state, message ):
   channel.send_message( user.user_id(), simplejson.dumps( { 'state': state, 'message': message } ) )
+
+def random_alnum( count ):
+  chars = string.letters + string.digits
+  result = ''
+  for i in range(count):
+    result += random.choice(chars)
+  return result
+
