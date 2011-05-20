@@ -25,6 +25,9 @@ label {
   float: left;
 }
 
+#history {
+}
+
 #log {
   display: none;
 }

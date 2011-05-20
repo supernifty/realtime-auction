@@ -65,7 +65,7 @@ class Item( db.Model ):
     '''auction has settled'''
     bid = Bid.all().filter( "item =", self ).order( "-amount" ).fetch(1)[0]
     profile = Profile.find( bid.bidder )
-    # TODO make the preapproved payment through paypal
+    # make the preapproved payment through paypal
     logging.info( "settling transaction..." )
     pay = paypal.PayWithPreapproval( amount=bid.amount_dollars(), preapproval_key=profile.preapproval_key )
     if pay.status() == 'COMPLETED':

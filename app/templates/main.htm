@@ -37,6 +37,12 @@
 <a onclick="mgr.confirm_purchase(); return false" href="nojs.htm">Continue...</a>
 </div>
 <p><a href="/profile">Update profile</a></p>
+<p><strong>Your Recent Bids</strong></p>
+<div id="history">
+No recent bids
+</div>
+<a onclick="mgr.clear_history(); return false" href="nojs.htm">Clear</a>
+</p>
 <script>
   var mgr = auction();
   mgr.init( "{{ token }}" );

@@ -5,6 +5,7 @@ var auction = function () {
     socket,
     expiry,
     key,
+    item,
     timer = null,
     stopped = false;
 
@@ -45,6 +46,7 @@ var auction = function () {
     if ( state.state == 'OK' ) {
       document.getElementById( "auction" ).style.display = 'block';
       key = state.key;
+      item = state.item;
       if ( state.bid == '0.00' ) {
         document.getElementById( "bid" ).innerHTML = 'No bids.';
       }
@@ -91,6 +93,23 @@ var auction = function () {
   log = function(l) {
     document.getElementById( "log" ).innerHTML = l;
   }
+
+  history = function( amount ) {
+    var list, li = '';
+    list = JSON.parse( localStorage['history'] );
+    if ( list === null ) {
+      list = [];
+    }
+    if ( amount ) {
+      list[list.length] = { 'item': item, 'amount': amount };
+      localStorage['history'] = JSON.stringify( list );
+    }
+    
+    for ( i in list ) {
+      li = '<li>' + list[i]['amount'] + ' for ' + list[i]['item'] + '</li>' + li;
+    }
+    document.getElementById('history').innerHTML = '<ul>' + li + '</ul>';
+  }
   
   return {
     init: function (token) {
@@ -100,10 +119,13 @@ var auction = function () {
       socket.onmessage = on_message;
       socket.onerror = on_error;
       socket.onclose = on_close;
+      history();
     },
 
     new_bid: function() {
-      send( "/bid", "key=" + key + "&amount=" + document.getElementById("new_bid").value );
+      var amount = document.getElementById("new_bid").value; 
+      send( "/bid", "key=" + key + "&amount=" + amount );
+      history( '$' + amount );
     },
 
     confirm_purchase: function() {
@@ -115,7 +137,12 @@ var auction = function () {
     message: function(m) {
       log( "got: " + m );
       on_message( { "data": m } );
+    },
+
+    clear_history: function() {
+      localStorage['history'] = null;
     }
+
   }
 }
 

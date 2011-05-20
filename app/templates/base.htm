@@ -1,12 +1,19 @@
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <link rel="stylesheet" href="/static/style.css"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <link rel="shortcut icon" href="/static/favicon.ico">
+  <link media="only screen and (max-device-width: 480px)" href="/static/small.css" type= "text/css" rel="stylesheet">
+  <link media="screen and (min-device-width: 481px)" href="/static/style.css" type="text/css" rel="stylesheet">
   <title>{% block title %}{% endblock %}</title>
   {% block head %}{% endblock %}
 </head>
 <body>
-  <a href="/">Home</a>
-  <h2>{% block heading %}{% endblock %}</h2>
+  <div id="header">
+    <a href="/">Home</a>
+    <h2>{% block heading %}{% endblock %}</h2>
+  </div>
 {% if message %}
   <div id="message">{{ message }}</div>
 {% endif %}
